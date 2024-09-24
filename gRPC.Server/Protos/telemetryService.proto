@@ -1,0 +1,10 @@
+syntax = "proto3";
+
+option csharp_namespace = "gRPC.Server.Protos";
+
+import "models.proto";
+
+service TrackingService {
+	rpc SendMessage(TrackingMessage) returns (TrackingResponse);
+}
+
