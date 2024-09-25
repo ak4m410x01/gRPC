@@ -1,5 +1,8 @@
+using Google.Protobuf.WellKnownTypes;
 using gRPC.Server.Protos;
 using Grpc.Net.Client;
+using System.Formats.Asn1;
+using System.Security.Cryptography;
 
 namespace gRPC.Client
 {
@@ -35,6 +38,23 @@ namespace gRPC.Client
 
         protected override async Task ExecuteAsync(CancellationToken stoppingToken)
         {
+            var stream = Client.KeepAlive();
+
+            var keepAliveAsync = Task.Run(async () =>
+            {
+                while (!stoppingToken.IsCancellationRequested)
+                {
+                    await stream.RequestStream.WriteAsync(new PulseMessage()
+                    {
+                        Status = ClientStatus.Working,
+                        Details = "Working...................",
+                        Stamp = Timestamp.FromDateTime(DateTime.UtcNow)
+                    });
+
+                    await Task.Delay(1000, stoppingToken);
+                }
+            });
+
             while (!stoppingToken.IsCancellationRequested)
             {
                 if (_logger.IsEnabled(LogLevel.Information))
@@ -42,15 +62,20 @@ namespace gRPC.Client
                     _logger.LogInformation("Worker running at: {time}", DateTimeOffset.Now);
                     await Task.Delay(2000, stoppingToken);
                 }
-
-                // Send Message to gRPC Server
-                _logger.LogInformation("Sending...");
-                var response = await Client.SendMessageAsync(_request);
-                await Task.Delay(1000, stoppingToken);
-
-                // Recieve Response
-                _logger.LogInformation($"Recieve {response.Success}");
+                await SendMessageAsync(stoppingToken);
             }
+        }
+
+        private async Task SendMessageAsync(CancellationToken token)
+        {
+            // Send Message to gRPC Server
+            _logger.LogInformation("Sending...");
+            var response = await Client.SendMessageAsync(_request);
+
+            await Task.Delay(1000, token);
+
+            // Recieve Response
+            _logger.LogInformation($"Recieve {response.Success}");
         }
     }
 }
