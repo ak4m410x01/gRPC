@@ -7,6 +7,25 @@ namespace gRPC.Client
     {
         private readonly ILogger<Worker> _logger;
         private readonly TrackingMessage _request;
+        private TrackingService.TrackingServiceClient? _client;
+
+        private TrackingService.TrackingServiceClient Client
+        {
+            get
+            {
+                if (_client == null)
+                {
+                    // Create gRPC Server Channel
+                    var address = "https://localhost:7241";
+                    var channel = GrpcChannel.ForAddress(address);
+
+                    // Create Client
+                    _client = new TrackingService.TrackingServiceClient(channel);
+                }
+
+                return _client;
+            }
+        }
 
         public Worker(ILogger<Worker> logger, TrackingMessage request)
         {
@@ -24,16 +43,9 @@ namespace gRPC.Client
                     await Task.Delay(2000, stoppingToken);
                 }
 
-                // Create gRPC Server Channel
-                var address = "https://localhost:7241";
-                var channel = GrpcChannel.ForAddress(address);
-
-                // Create Client
-                var client = new TrackingService.TrackingServiceClient(channel);
-
                 // Send Message to gRPC Server
                 _logger.LogInformation("Sending...");
-                var response = await client.SendMessageAsync(_request);
+                var response = await Client.SendMessageAsync(_request);
                 await Task.Delay(1000, stoppingToken);
 
                 // Recieve Response
